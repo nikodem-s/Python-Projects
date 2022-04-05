@@ -1,49 +1,33 @@
-from requests import get
-from pprint import PrettyPrinter
+import time
 
-BASE_URL = "https://data.nba.net"
-ALL_JSON = "/prod/v1/today.json"
-printer = PrettyPrinter()
+from bs4 import BeautifulSoup
+import requests
 
-
-def getlinks():
-    data = get(BASE_URL + ALL_JSON).json()
-    links = data['links']
-    return links
+print('Tell job you dont want to do: ')
+unfamiliar_job = input('>')
 
 
-def getScoreboard():
-    scoreboard = getlinks()['currentScoreboard']
-    games = get(BASE_URL + scoreboard).json()['games']
+def find_jobs():
+    html_text = requests.get('https://www.olx.pl/praca/q-praca/?search%5Bfilter_enum_contract%5D%5B0%5D=zlecenie').text
+    soup = BeautifulSoup(html_text, 'lxml')
 
-    for game in games:
-        home_team = game['hTeam']
-        v_team = game['vTeam']
-        clock = game['clock']
-        period = game['period']
-        print("---------------------------------------------------------------------")
-        print(f"{home_team['triCode']} vs {v_team['triCode']}")
-        print(f"{home_team['score']} - {v_team['score']}")
-        print(f"{clock}, {period['current']}")
+    jobs = soup.find('table', class_='fixed offers breakword offers--top redesigned')
+    jobs_names = jobs.find_all('h3', class_='lheight22 margintop5')
+    jobs_wages = jobs.find_all('div', class_='list-item__price')
+    jobs_infos = jobs.find_all('h3', class_='lheight22 margintop5')
 
-
-def get_stats():
-    stats = getlinks()['leagueTeamStatsLeaders']
-    teams = get(BASE_URL + stats).json()['league']['standard']['regularSeason']['teams']
-
-    teams = list(filter(lambda x: x['name'] != "Team",
-                        teams))  # funkcja anonimowa, jesli warunek jest spelniony to zostaje element w liscie
-    teams.sort(key=lambda x: int(x['ppg']['rank']))
-    i = 0
-
-    for team in teams:
-        i += 1
-        name = team['name']
-        nickname = team['nickname']
-        ppg = team['ppg']['avg']
-        print(f"{i}. {name} - {nickname}: {ppg}")
+    for i in range(len(jobs_wages)):
+        if unfamiliar_job.lower() not in jobs_names[i].text.strip().lower():
+            with open(f'posts/{i}.txt', 'w') as f:
+                f.write(f'Job name: {jobs_names[i].text.strip()}')
+                f.write(f'\nWage: {jobs_wages[i].text.strip()}')
+                f.write(f"\nMore info: {jobs_infos[i].a['href']}")  # alt + shift
+            print(f'File saved')
 
 
-getScoreboard()
-get_stats()
-
+if __name__ == '__main__':
+    while True:
+        time_wait = 10
+        find_jobs()
+        print(f'Waiting {time_wait} minutes...')
+        time.sleep(time_wait * 60)
