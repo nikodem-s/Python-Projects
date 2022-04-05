@@ -1,42 +1,49 @@
 from requests import get
 from pprint import PrettyPrinter
-import csv
-import getpass
-import os
 
-USER_NAME = getpass.getuser()
-BASE_URL = "https://api.weatherapi.com/"
-JSON_URL = "v1/current.json?key=d903086d988048e8a6c134655220204&q="
-# city = input('Enter a city: ')
+BASE_URL = "https://data.nba.net"
+ALL_JSON = "/prod/v1/today.json"
 printer = PrettyPrinter()
-city = "Wadowice"
-
-data = get(BASE_URL + JSON_URL + city).json()
-location_data = data['location']
-weather_data = data['current']
-printer.pprint(weather_data.keys())
 
 
-def print_info():
-    print(f"Weather in {city}({location_data['lat']}, {location_data['lon']}) on time {weather_data['last_updated']}: ")
-    print(f"Time: {location_data['localtime']}")
-    print(f"Temperature: {weather_data['temp_c']}")
-    print(f"Feels like tmperature: {weather_data['feelslike_c']}")
-    print(f"Wind speed: {weather_data['wind_kph']} km/h")
-    print(f"Wind direction: {weather_data['wind_dir']}")
-    print(f"Percent of clouds on the sky: {weather_data['cloud']}%")
-    print(f"Humidity: : {weather_data['humidity']}%")
+def getlinks():
+    data = get(BASE_URL + ALL_JSON).json()
+    links = data['links']
+    return links
 
 
-def write_csv():
-    # fields = ['time', 'temp', 'ftemp', 'wind', 'cloud', 'humidity']
-    row = [location_data['localtime'], weather_data['temp_c'], weather_data['feelslike_c'],
-           weather_data['wind_kph'], weather_data['cloud'], weather_data['humidity']]
-    with open('pogoda.csv', 'a', newline='') as file:
-        csvwriter = csv.writer(file)
-        csvwriter.writerow(row)
-        file.close()
+def getScoreboard():
+    scoreboard = getlinks()['currentScoreboard']
+    games = get(BASE_URL + scoreboard).json()['games']
+
+    for game in games:
+        home_team = game['hTeam']
+        v_team = game['vTeam']
+        clock = game['clock']
+        period = game['period']
+        print("---------------------------------------------------------------------")
+        print(f"{home_team['triCode']} vs {v_team['triCode']}")
+        print(f"{home_team['score']} - {v_team['score']}")
+        print(f"{clock}, {period['current']}")
 
 
-print_info()
-write_csv()
+def get_stats():
+    stats = getlinks()['leagueTeamStatsLeaders']
+    teams = get(BASE_URL + stats).json()['league']['standard']['regularSeason']['teams']
+
+    teams = list(filter(lambda x: x['name'] != "Team",
+                        teams))  # funkcja anonimowa, jesli warunek jest spelniony to zostaje element w liscie
+    teams.sort(key=lambda x: int(x['ppg']['rank']))
+    i = 0
+
+    for team in teams:
+        i += 1
+        name = team['name']
+        nickname = team['nickname']
+        ppg = team['ppg']['avg']
+        print(f"{i}. {name} - {nickname}: {ppg}")
+
+
+getScoreboard()
+get_stats()
+
