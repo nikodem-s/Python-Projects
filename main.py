@@ -1,33 +1,35 @@
-import time
-
-from bs4 import BeautifulSoup
 import requests
+from requests import get
+from bs4 import BeautifulSoup
 
-print('Tell job you dont want to do: ')
-unfamiliar_job = input('>')
+BASE_URL = "https://api.dictionaryapi.dev/api/v2/entries/en/"
+word = (input('Enter a word: '))
+data = get(BASE_URL + word).json()
+
+meanings = data[0]['meanings'][0]['definitions']
+
+i = 0
+print("--------MEANINGS-----------")
+for meaning in meanings:
+    i += 1
+    print(f"{i}.{meaning['definition']}")
+
+# tlumaczenie na jezyk polski:
+html_text = requests.get('https://www.diki.pl/slownik-angielskiego?q=' + word).text
+soup = BeautifulSoup(html_text, 'lxml')
+
+native_lang_meanings = soup.find('ol', class_="foreignToNativeMeanings")
+
+sjp_html = requests.get('https://sjp.pl/' + native_lang_meanings.span.a.text).text
+soup_sjp = BeautifulSoup(sjp_html, 'lxml')
+polish_word_meanings = soup_sjp.find('p', style="margin: .5em 0; font: medium/1.4 sans-serif; max-width: 34em; ")
 
 
-def find_jobs():
-    html_text = requests.get('https://www.olx.pl/praca/q-praca/?search%5Bfilter_enum_contract%5D%5B0%5D=zlecenie').text
-    soup = BeautifulSoup(html_text, 'lxml')
-
-    jobs = soup.find('table', class_='fixed offers breakword offers--top redesigned')
-    jobs_names = jobs.find_all('h3', class_='lheight22 margintop5')
-    jobs_wages = jobs.find_all('div', class_='list-item__price')
-    jobs_infos = jobs.find_all('h3', class_='lheight22 margintop5')
-
-    for i in range(len(jobs_wages)):
-        if unfamiliar_job.lower() not in jobs_names[i].text.strip().lower():
-            with open(f'posts/{i}.txt', 'w') as f:
-                f.write(f'Job name: {jobs_names[i].text.strip()}')
-                f.write(f'\nWage: {jobs_wages[i].text.strip()}')
-                f.write(f"\nMore info: {jobs_infos[i].a['href']}")  # alt + shift
-            print(f'File saved')
+def print_polish_meanings():
+    for polish_meaning in polish_word_meanings.text.split(';'):
+        print(polish_meaning)
 
 
-if __name__ == '__main__':
-    while True:
-        time_wait = 10
-        find_jobs()
-        print(f'Waiting {time_wait} minutes...')
-        time.sleep(time_wait * 60)
+print(f'\nMeaning of the word "{word}" in polish: {native_lang_meanings.span.a.text}')
+print(f'\nAccording to sjp (polish dictonary) it has meanings:')
+print_polish_meanings()
